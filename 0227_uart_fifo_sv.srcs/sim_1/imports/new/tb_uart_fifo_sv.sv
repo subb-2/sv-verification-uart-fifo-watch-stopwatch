@@ -97,6 +97,7 @@ class driver;
             gen2drv_mbox.get(tr);
             @(posedge uf_if.clk);
             #1;
+            tr.display("drv");
 
             uf_if.uart_rx = 1'b0; // rx 선을 0으로 내려서 통신 시작 알림
             #(uf_if.BAUD_PERIOD);
@@ -109,7 +110,6 @@ class driver;
             uf_if.uart_rx = 1'b1;
             #(uf_if.BAUD_PERIOD);
 
-            tr.display("drv");
             // 약간의 여유 시간을 주어 FIFO 상태가 업데이트되게 함
             repeat(5) @(posedge uf_if.clk);
         end
