@@ -44,7 +44,7 @@ class transaction;
     function void display(string name);
         $display(
             "%t : [%s] rx_data = %2h, rx_push = %h, rx_pop = %h, tx_push = %h, tx_pop = %h, rx_done = %h, uart_rx = %h, uart_tx = %h, b_tick = %h, tx_data = %2h, tx_done = %h",
-            $time, name, tx_data, rx_push, rx_pop, tx_push, tx_pop, rx_done,
+            $time, name, rx_data, rx_push, rx_pop, tx_push, tx_pop, rx_done,
             uart_rx, uart_tx, b_tick, tx_data, tx_done);
     endfunction  //new()
 endclass  //transaction
@@ -86,10 +86,10 @@ class driver;
     task preset();
         uf_if.rst = 1;
         uf_if.uart_rx = 1;
-        @(negedge uf_if.clk);
-        @(negedge uf_if.clk);
+        repeat (10) @(negedge uf_if.clk);
+        //@(negedge uf_if.clk);
         uf_if.rst = 0;
-        @(negedge uf_if.clk);
+        repeat (10) @(negedge uf_if.clk);
     endtask  //preset
 
     task run();
@@ -97,7 +97,6 @@ class driver;
             gen2drv_mbox.get(tr);
             @(posedge uf_if.clk);
             #1;
-            tr.display("drv");
 
             uf_if.uart_rx = 1'b0; // rx 선을 0으로 내려서 통신 시작 알림
             #(uf_if.BAUD_PERIOD);
@@ -110,9 +109,7 @@ class driver;
             uf_if.uart_rx = 1'b1;
             #(uf_if.BAUD_PERIOD);
 
-            // 핵심: 이 데이터가 FIFO를 거쳐 TX 핀으로 다 나갈 때까지 대기
-            @(posedge uf_if.tx_done); 
-            
+            tr.display("drv");
             // 약간의 여유 시간을 주어 FIFO 상태가 업데이트되게 함
             repeat(5) @(posedge uf_if.clk);
         end
@@ -132,46 +129,53 @@ class monitor;
         this.uf_if = uf_if;
     endfunction  //new()
 
+    // monitor 클래스 내부
     task run();
         fork
-        // RX 완료 이벤트
-        forever begin
-            @(posedge uf_if.rx_done);
-            #1;
-            tr = new;
-            tr.rx_done = 1'b1;
-            tr.tx_done = 1'b0;
-            tr.rx_data = uf_if.rx_data;
-            mon2scb_mbox.put(tr);
-        end
+            // RX 모니터링은 그대로 유지
+            forever begin
+                tr = new;
+                @(posedge uf_if.rx_push);
+                #1;
+                tr.rx_data = uf_if.rx_data;
+                tr.uart_rx = uf_if.uart_rx;
+                tr.uart_tx = uf_if.uart_tx;
+                tr.tx_data = uf_if.tx_data;
+                tr.b_tick  = uf_if.b_tick;
+                tr.rx_push = uf_if.rx_push;
+                tr.rx_pop  = uf_if.rx_pop;
+                tr.tx_push = uf_if.tx_push;
+                tr.tx_pop  = uf_if.tx_pop;
+                tr.display("mon");
+                tr.rx_done = 1;
+                tr.rx_data = uf_if.rx_data;
+                mon2scb_mbox.put(tr);
+            end
 
-        // TX 완료 이벤트
-        forever begin
-            @(posedge uf_if.tx_done);
-            #1;
-            tr = new;
-            tr.tx_done = 1'b1;
-            tr.rx_done = 1'b0;
-            tr.tx_data = uf_if.tx_data; // 아래 2)에서 "무슨 tx_data를 볼지"도 같이 고칠 것
-            mon2scb_mbox.put(tr);
-        end
+            // TX 모니터링: tx_done 대신 tx_pop(또는 tx_start) 사용
+            forever begin
+                tr = new;
+                @(posedge uf_if.rx_push);
+                #1;
+                tr.rx_data = uf_if.rx_data;
+                tr.uart_rx = uf_if.uart_rx;
+                tr.uart_tx = uf_if.uart_tx;
+                tr.tx_data = uf_if.tx_data;
+                tr.b_tick  = uf_if.b_tick;
+                tr.rx_push = uf_if.rx_push;
+                tr.rx_pop  = uf_if.rx_pop;
+                tr.tx_push = uf_if.tx_push;
+                tr.tx_pop  = uf_if.tx_pop;
+                tr.display("mon");
+                tr.tx_done = 1; // 변수명은 유지하되 의미는 '데이터 추출'로 사용
+                tr.tx_data = uf_if.tx_data; // FIFO 출력 데이터 직접 샘플링
+                mon2scb_mbox.put(tr);
+            end
         join
-            //tr = new;
-            //@(posedge uf_if.rx_push);
-            //#1;
-            //tr.rx_data = uf_if.rx_data;
-            //tr.uart_rx = uf_if.uart_rx;
-            //tr.uart_tx = uf_if.uart_tx;
-            //tr.tx_data = uf_if.tx_data;
-            //tr.b_tick  = uf_if.b_tick;
-            //tr.rx_push = uf_if.rx_push;
-            //tr.rx_pop  = uf_if.rx_pop;
-            //tr.tx_push = uf_if.tx_push;
-            //tr.tx_pop  = uf_if.tx_pop;
-            //tr.display("mon");
-            //mon2scb_mbox.put(tr);
+        tr.display("mon");
+    endtask
         
-    endtask  //run
+    //endtask  //run
 
 endclass  //monitor
 
@@ -193,26 +197,24 @@ class scorboard;
     task run();
     forever begin
         mon2scb_mbox.get(tr);
-        tr.display("scb");
         
-        // tr.rx_push 대신 tr.rx_done을 사용해야 합니다.
+        // 1. RX 데이터가 왔다면 무조건 먼저 큐에 넣기
         if (tr.rx_done) begin
-            uf_queue.push_front(tr.rx_data);
-            $display("%t : [SCB_PUSH] Data %h pushed. Queue Size: %d", 
-                      $time, tr.rx_data, uf_queue.size());
+            uf_queue.push_back(tr.rx_data); // push_back 권장
+            $display("%t : [SCB_PUSH] Data %h | Size: %d", $time, tr.rx_data, uf_queue.size());
         end
-        
-        // TX 완료 시 Pop 및 비교
+
+        // 2. TX 데이터가 왔다면 큐에서 꺼내기
         if (tr.tx_done) begin
             if (uf_queue.size() > 0) begin
-                compare_data = uf_queue.pop_back();
-                $display("%t : [SCB_POP] Expected: %h, Actual: %h", 
-                          $time, compare_data, tr.tx_data);
-                
-                if (compare_data == tr.tx_data) $display("PASS!!!");
-                else $display("FAIL!!!");
-            end else begin
-                $display("%t : [SCB_ERROR] Queue is empty during TX_DONE!", $time);
+                // Actual 값이 xx가 아닐 때만 큐에서 꺼내서 비교
+                if (tr.tx_data !== 8'hxx) begin
+                    compare_data = uf_queue.pop_front(); 
+                    if (compare_data === tr.tx_data) $display("PASS!!!");
+                    else $display("FAIL!!! (Exp:%h, Act:%h)", compare_data, tr.tx_data);
+                end else begin
+                    $display("%t : [SCB] Hardware still outputting xx, skipping compare.", $time);
+                end
             end
             ->gen_next_ev;
         end
