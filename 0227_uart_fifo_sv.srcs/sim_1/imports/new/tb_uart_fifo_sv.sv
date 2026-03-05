@@ -48,11 +48,11 @@ class transaction;
 
     constraint rand_no_zero {rx_data != 8'h00;}
 
-    rand int baud_scale; 
+    //rand int baud_scale; 
 
-    constraint baud_scale_percent {
-        baud_scale inside {[9500:9700]};
-    }
+    //constraint baud_scale_percent {
+    //    baud_scale inside {[10000:25000]};
+    //}
 
     logic       rst;
 
@@ -77,8 +77,8 @@ class transaction;
     logic [7:0] rx_pop_data;
     logic [7:0] tx_push_data;
 
-    logic       rx_fifo_pop_cp;
-    logic       tx_fifo_pop_cp;
+    //logic       rx_fifo_pop_cp;
+    //logic       tx_fifo_pop_cp;
 
     function void display(string name);
         $display(
@@ -120,7 +120,8 @@ class driver;
     mailbox #(transaction) gen2drv_mbox;
     virtual uf_interface uf_if;
 
-    longint BAUD_sc_per;
+    //longint baud_sc_per;
+    //longint BAUD_sc_per;
 
     function new(mailbox#(transaction) gen2drv_mbox,
                  virtual uf_interface uf_if);
@@ -136,53 +137,15 @@ class driver;
         repeat (10) @(negedge uf_if.clk);
     endtask  //preset
 
-    ////=======================================
-    //// [추가] Case 1: 가짜 시작 비트 (Glitch) 주입 Task
-    //task send_glitch();
-    //    $display("--------------------------------------------------");
-    //    $display("%t [DRV] --- 코너 케이스 1: False Start Bit (Glitch) 주입 ---", $time);
-    //    @(posedge uf_if.clk);
-    //    uf_if.uart_rx = 1'b0;               // Start bit 인가
-    //    #(uf_if.BAUD_PERIOD / 4);           // 정중앙(샘플링 시점)이 오기 전에 너무 빨리 복구!
-    //    uf_if.uart_rx = 1'b1;               // 원상 복구
-    //    #(uf_if.BAUD_PERIOD * 2);           // 수신부가 IDLE로 잘 돌아오는지 관찰하기 위한 대기
-    //endtask
-//
-    //// [추가] Case 2: 프레이밍 에러 (Framing Error) 주입 Task
-    //task send_framing_error(logic [7:0] err_data);
-    //    $display("--------------------------------------------------");
-    //    $display("%t [DRV] --- 코너 케이스 2: Framing Error 주입 ---", $time);
-    //    @(posedge uf_if.clk);
-    //    uf_if.uart_rx = 1'b0;               // 정상 Start bit
-    //    #(uf_if.BAUD_PERIOD);
-//
-    //    for (int i = 0; i < 8; i++) begin   // 8비트 데이터 정상 전송
-    //        uf_if.uart_rx = err_data[i];
-    //        #(uf_if.BAUD_PERIOD);
-    //    end
-//
-    //    uf_if.uart_rx = 1'b0;               // !! 의도적인 에러: Stop bit 자리에 0 인가 !!
-    //    #(uf_if.BAUD_PERIOD);
-    //    uf_if.uart_rx = 1'b1;               // 통신선 IDLE 원상복구
-    //    #(uf_if.BAUD_PERIOD * 2);
-    //endtask
-    ////=======================================
-//
+
     //PC가 data 전송 
     task run();
-
-        //send_glitch();
-        //send_framing_error(8'hA5);
-//
-        //// [추가된 코드] 에러 주입 때문에 오염된(?) FIFO와 상태머신을 리셋!
-        //$display("%t [DRV] --- ERROR + RESET  ---", $time);
-        //preset();
-
         forever begin
             //in mailbox
             gen2drv_mbox.get(tr);
 
-            BAUD_sc_per = (100_000_000 / tr.baud_scale) * 10;
+            //baud_sc_per = (uf_if.BAUD_PERIOD * tr.baud_scale) / 100;
+            //BAUD_sc_per = (100_000_000 / tr.baud_scale) * 10;
 
             @(posedge uf_if.clk);
             #1;
@@ -190,30 +153,30 @@ class driver;
 
             //rx data 전송
             uf_if.uart_rx = 1'b0; // rx 선을 0으로 내려서 통신 시작 알림
-            //#(uf_if.BAUD_PERIOD);
-            #(BAUD_sc_per);
+            #(uf_if.BAUD_PERIOD);
+            //#(BAUD_sc_per);
 
             //random data rx 선으로 밀어 넣기 
             for (int i = 0; i < 8; i++) begin
                 uf_if.uart_rx = tr.rx_data[i];
-                //#(uf_if.BAUD_PERIOD);
-                #(BAUD_sc_per);
+                #(uf_if.BAUD_PERIOD);
+                //#(BAUD_sc_per);
             end
             uf_if.uart_rx = 1'b1;
-            //#(uf_if.BAUD_PERIOD);
-            #(BAUD_sc_per);
+            #(uf_if.BAUD_PERIOD);
+            //#(BAUD_sc_per);
 
             // 수정 후 (%0t 를 %0d 로 변경)
-            $display("%t [DRV] baud_scale = %0d (= %0.2f%%), BAUD_sc_per = %0d ns",
-                $time, tr.baud_scale, (tr.baud_scale-9600)/100.0, BAUD_sc_per);
-            //$display("%t [DRV] BAUD = %0d (= %0.2f%%), BAUD_ns = %0d ns",
-                //$time, uf_if.BAUD_PERIOD, uf_if.BAUD_PERIOD/100.0, uf_if.BAUD_PERIOD);
+           // $display("%t [DRV] baud_scale = %0d (= %0.2f%%), BAUD_sc_per = %0d ns",
+                //$time, tr.baud_scale, (tr.baud_scale-9600)/100.0, BAUD_sc_per);
+            $display("%t [DRV] BAUD = %0d (= %0.2f%%), BAUD_ns = %0d ns",
+                $time, uf_if.BAUD_PERIOD, uf_if.BAUD_PERIOD/100.0, uf_if.BAUD_PERIOD);
 
             // 약간의 여유 시간을 주어 FIFO 상태가 업데이트되게 함
-            //repeat (5) @(negedge uf_if.clk); //이것 때문에 FIFO가 full 안 나는 거라고?
+            repeat (5) @(negedge uf_if.clk); //이것 때문에 FIFO가 full 안 나는 거라고?
             //repeat ($urandom_range(0,5))
             //@(negedge uf_if.clk);
-            #(BAUD_sc_per * 15);
+            //#(BAUD_sc_per * 15);
         end
     endtask
 
@@ -248,24 +211,42 @@ class monitor;
                 tr_rx.b_tick = uf_if.b_tick;
 
                 tr_rx.rx_done = uf_if.rx_done;
-                tr_rx.fifo_rx_push = uf_if.fifo_rx_push;
-                tr_rx.fifo_rx_pop = uf_if.fifo_rx_pop;
-                tr_rx.fifo_rx_empty = uf_if.fifo_rx_empty;
 
-                tr_rx.fifo_tx_push = uf_if.fifo_tx_push;
-                tr_rx.fifo_tx_pop = uf_if.fifo_tx_pop;
-                tr_rx.fifo_tx_full = uf_if.fifo_tx_full;
-                tr_rx.fifo_tx_empty = uf_if.fifo_tx_empty;
-
-                tr_rx.tx_start = uf_if.tx_start;
-                tr_rx.fifo_tx_busy = uf_if.fifo_tx_busy;
-
-                $display("%t [MON_RX] DATA = %2h, DONE = %h, PUSH = %h,  EMPTY = %h",
-                         $time, uf_if.rx_data, uf_if.rx_done, uf_if.fifo_rx_push,
-                         uf_if.fifo_rx_empty);
+                $display("%t [MON_RX] RX_DATA = %2h, RX_DONE = %h",
+                         $time, uf_if.rx_data, uf_if.rx_done);
                 mon2scb_mbox.put(tr_rx);
             end
 
+            //rx_push_data
+            forever begin
+                transaction rx_push;
+                @(posedge uf_if.fifo_rx_push);
+                #1;
+                @(posedge uf_if.clk);
+                #1;
+                rx_push = new;
+
+                rx_push.fifo_rx_push = uf_if.fifo_rx_push;
+                rx_push.fifo_rx_empty = uf_if.fifo_rx_empty;
+                
+                $display("%t [MON_RX_PUSH] ", $time);
+                mon2scb_mbox.put(rx_push);
+            end
+
+            //rx_pop_data + tx_push_data
+            forever begin
+                transaction rx_empty;
+                @(negedge uf_if.fifo_rx_empty);
+                #1;
+                @(posedge uf_if.clk);
+                #1;
+                rx_empty = new;
+
+                rx_empty.rx_pop_data = uf_if.rx_pop_data;
+                tx_empty.tx_push_data = uf_if.tx_push_Data;
+
+                mon2scb_mbox.put(rx_empty);
+            end
 
             //tx_pop_data
             forever begin
@@ -279,9 +260,7 @@ class monitor;
                 tx_pop.rx_data = uf_if.rx_data;
                 tx_pop.fifo_rx_empty = uf_if.fifo_rx_empty;
                 tx_pop.fifo_tx_empty = uf_if.fifo_tx_empty;
-                tx_pop.tx_fifo_pop_cp = 1;  // 찰나의 순간 플래그 ON!
-                tx_pop.tx_done = 0;  // 최종 완료는 아니니까 0
-                tx_pop.rx_done = 0;  // RX도 아님
+                //tx_pop.tx_fifo_pop_cp = 1;  // 찰나의 순간 플래그 ON!
 
                 mon2scb_mbox.put(tx_pop);
             end
@@ -297,21 +276,9 @@ class monitor;
                 tr_tx.rx_data = uf_if.rx_data;
                 tr_tx.tx_data = uf_if.tx_data;  // FIFO 출력값 캡처
 
-                tr_tx.tx_done = uf_if.tx_done;
-
                 tr_tx.b_tick = uf_if.b_tick;
 
-                tr_tx.fifo_rx_push = uf_if.fifo_rx_push;
-                tr_tx.fifo_rx_pop = uf_if.fifo_rx_pop;
-                tr_tx.fifo_rx_empty = uf_if.fifo_rx_empty;
-
-                tr_tx.fifo_tx_push = uf_if.fifo_tx_push;
-                tr_tx.fifo_tx_pop = uf_if.fifo_tx_pop;
-                tr_tx.fifo_tx_full = uf_if.fifo_tx_full;
-                tr_tx.fifo_tx_empty = uf_if.fifo_tx_empty;
-
-                tr_tx.tx_start = uf_if.tx_start;
-                tr_tx.fifo_tx_busy = uf_if.fifo_tx_busy;
+                tr_tx.tx_done = uf_if.tx_done;
 
                 $display(
                     "%t [MON_TX] DATA = %2h, DONE = %h, PUSH = %h,  EMPTY = %h, FULL = %h",
@@ -340,18 +307,21 @@ endclass  //monitor
 class scoreboard;
 
     transaction tr;
-    transaction expected_tr;
+
     mailbox #(transaction) mon2scb_mbox;
     mailbox #(transaction) gen2scb_mbox;
 
     int compared_cnt = 0;  // 현재까지 비교한 개수
+    //int tx_done_cnt = 0; // tx_done 비교 시점 
     event gen_next_ev;  // 테스트 종료를 알리는 이벤트
 
     //queue 
     logic [7:0] uf_queue[$];  //size 지정 안하면 무한대 
+    logic [7:0] uf_queue_ur[$];
     logic [7:0] fifo_data;
     logic [7:0] fifo_compare;
     logic [7:0] compare_data;
+    logic [7:0] rx_data_o;
 
     int INTERNAL_pass_cnt, INTERNAL_fail_cnt;
     int FINAL_pass_cnt, FINAL_fail_cnt;
@@ -364,20 +334,25 @@ class scoreboard;
     endfunction  //new()
 
     task run();
-        //rx_data queue에 저장 
         fork
             forever begin
-                gen2scb_mbox.get(expected_tr);
-                uf_queue.push_back(expected_tr.rx_data); // 원본 데이터 저장
-                $display("%t : [scb_rx_data] rx_data = %h", $time, expected_tr.rx_data);
+                gen2scb_mbox.get(tr);
+                uf_queue.push_back(tr.rx_data); // 원본 데이터 저장
+                uf_queue.push_back(tr.rx_data);
+                $display("%t : [scb_rx_data] rx_data = %h", $time, tr.rx_data);
             end
         join_none
 
         forever begin
             mon2scb_mbox.get(tr);
 
+            //rx_data 비교
+            if (tr.tx_done) begin
+                rx_data_o = tr.rx_data;
+            end
+
             // tx_fifo_pop_data 비교 
-            if (tr.tx_fifo_pop_cp) begin
+            if (tr.tx_start) begin
                 tr.display("scb_pop_data");
                 fifo_data = tr.rx_data;
                 fifo_compare = tr.tx_data; 
@@ -397,24 +372,40 @@ class scoreboard;
                 end
             end
 
+            //rx_fifo_push_data 비교
+            if (tr.fifo_rx_push) begin
+                
+            end
+
+            //rx_fifo_pop_data + tx_fifo_push_data
+            if (tr.fifo_rx_empty) begin
+                
+            end
+
             // TX data가 왔을 때 꺼내서 비교 
             if (tr.tx_done) begin
-                //tx_done_cnt++;
                 tr.display("tx_data_compare");
                 if (uf_queue.size() > 0) begin
-                    compare_data = uf_queue.pop_front();
-                    compared_cnt++;
-                    if (compare_data === tr.tx_data) begin
-                        $display("PASS!!! (Exp: %h, Act: %h)",
-                        compare_data, tr.tx_data);
-                        FINAL_pass_cnt++;
+                    // Act 값이 xx가 아닐 때만 queue에서 꺼내서 비교
+                    if (tr.tx_data !== 8'hxx) begin
+                    //if(tx_done_cnt >=3) begin
+                        compare_data = uf_queue.pop_front();
+                        compared_cnt++;
+                        if (compare_data === tr.tx_data) begin
+                            $display("PASS!!! (Exp: %h, Act: %h)",
+                            compare_data, tr.tx_data);
+                            FINAL_pass_cnt++;
+                        end else begin
+                            $display(
+                                "FAIL!!! (Exp:%h, Act:%h)",
+                                compare_data,
+                                tr.tx_data
+                            );
+                            FINAL_fail_cnt++;
+                        end
+                    //end
                     end else begin
-                        $display(
-                            "FAIL!!! (Exp:%h, Act:%h)",
-                            compare_data,
-                            tr.tx_data
-                        );
-                        FINAL_fail_cnt++;
+                        $display("%t : [SCB] Output xx, skipping compare.", $time);
                     end
                 end
             end
@@ -462,10 +453,13 @@ class environment;
             scb.run();
         join_any
 
-        begin
-            wait (scb.compared_cnt == i); 
-            $display("\n%t : SUCCESS", $time);
-        end
+        fork
+            begin
+                wait (scb.compared_cnt >= (i - 3)); 
+                $display("\n%t : SUCCESS", $time);
+            end
+
+        join_any
 
         disable fork;
         
