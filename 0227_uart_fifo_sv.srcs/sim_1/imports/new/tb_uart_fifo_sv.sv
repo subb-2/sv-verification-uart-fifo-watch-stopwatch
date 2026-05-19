@@ -243,7 +243,7 @@ class monitor;
                 rx_empty = new;
 
                 rx_empty.rx_pop_data = uf_if.rx_pop_data;
-                tx_empty.tx_push_data = uf_if.tx_push_Data;
+                rx_empty.tx_push_data = uf_if.tx_push_data;
 
                 mon2scb_mbox.put(rx_empty);
             end
@@ -372,15 +372,15 @@ class scoreboard;
                 end
             end
 
-            //rx_fifo_push_data 비교
-            if (tr.fifo_rx_push) begin
-                
-            end
-
-            //rx_fifo_pop_data + tx_fifo_push_data
-            if (tr.fifo_rx_empty) begin
-                
-            end
+//            //rx_fifo_push_data 비교
+//            if (tr.fifo_rx_push) begin
+//                
+//            end
+//
+//            //rx_fifo_pop_data + tx_fifo_push_data
+//            if (tr.fifo_rx_empty) begin
+//                
+//            end
 
             // TX data가 왔을 때 꺼내서 비교 
             if (tr.tx_done) begin
@@ -443,11 +443,11 @@ class environment;
     endfunction  //new()
 
     task run();
-        i = 10;
+        i = 256;
         drv.preset();
 
         fork
-            gen.run(10);
+            gen.run(256);
             drv.run();
             mon.run();
             scb.run();
