@@ -2,7 +2,7 @@
 
 > - **Verification Method:** OOP 기반 SystemVerilog Testbench (Class, Mailbox, Event)
 > - **Target:** UART + FIFO 통합 시스템, Stopwatch / Clock 디지털 회로
-> - **Language:** SystemVerilog (IEEE 1800)
+> - **Language:** SystemVerilog
 
 ---
 
