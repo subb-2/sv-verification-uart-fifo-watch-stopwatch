@@ -1,7 +1,7 @@
 # SystemVerilog Verification — UART/FIFO 통합 시스템
 📅 프로젝트 정보
 
-* 진행 기간: 2026.03 (3학년 2학기)
+* 진행 기간: 2026.02.23 ~ 2026.03.03
 * 검증 대상: `FIFO` (Circular Buffer, DEPTH=16), `UART + FIFO 통합 경로`
 * 기술 스택: `SystemVerilog`, `Vivado XSim`, `OOP Testbench (Class, Mailbox, Event)`
 
