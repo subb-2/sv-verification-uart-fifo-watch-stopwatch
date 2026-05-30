@@ -5,9 +5,13 @@
 * 검증 대상: `FIFO` (Circular Buffer, DEPTH=16), `UART + FIFO 통합 경로`
 * 기술 스택: `SystemVerilog`, `Vivado XSim`, `OOP Testbench (Class, Mailbox, Event)`
 
+---
+
 ## 📝 프로젝트 개요
 FIFO의 경계 조건(Full/Empty 동시 입출력)과 `uart_rx → FIFO_RX → FIFO_TX → uart_tx` End-to-End 데이터 무결성을 검증한 프로젝트입니다.
 단순 기능 동작 확인을 넘어, **실제 운용에서 오류가 집중되는 엣지 케이스**와 **비동기 통신의 Baud Rate 허용 오차 한계**를 정량적으로 검증하는 데 집중했습니다.
+
+---
 
 ## 🔑 주요 구현 내용
 
@@ -28,6 +32,8 @@ FIFO의 경계 조건(Full/Empty 동시 입출력)과 `uart_rx → FIFO_RX → F
 * **Measurement**: 오차 범위를 ±4.17% / ±5.21% / ±6.25% 세 구간으로 나누어 253건의 트랜잭션에 대해 pass/fail 집계.
 * **Result**: ±4.17% 이내에서 253/253 PASS, ±5.21%부터 MSB 방향 누적 오차로 비트 오판독 발생 시작. 실측 허용치가 이론값(±3%)보다 약 1.2%p 넓음을 확인.
 
+---
+
 ## 🚀 문제 해결 (Troubleshooting)
 
 ### 1. RX/TX 비교 타이밍 불일치
@@ -39,6 +45,8 @@ FIFO의 경계 조건(Full/Empty 동시 입출력)과 `uart_rx → FIFO_RX → F
 
 * **문제**: Scoreboard의 참조 데이터(`tr.rx_data`)가 원본 송신값이 아닌 DUT RX 출력값을 참조 → 오류가 있어도 자기 자신과 비교하는 구조가 되어 오차 20%에서도 PASS.
 * **해결**: `gen2scb` 경로를 별도로 추가하여 Generator에서 생성한 원본 데이터를 독립 queue(`uf_queue`)에 저장 후 비교.
+
+---
 
 ## ✅ 검증 결과
 
@@ -55,11 +63,15 @@ Baud Rate 오차 허용 범위
 | ±5.21% | ⚠️ PASS 148 / FAIL 105 |
 | ±6.25% | ❌ PASS 105 / FAIL 148 |
 
+---
+
 ## 📚 배운점
 
 * **Testbench Architecture**: 블록 간 역할을 명확히 분리하면 버그 원인이 어느 레이어에 있는지 즉시 좁혀낼 수 있다는 것을 직접 경험. Scoreboard의 참조 데이터 오류처럼 구조 설계 실수는 기능 버그보다 발견이 늦어짐.
 * **Timing in Simulation**: Drive/Monitor 타이밍 분리가 단순한 규칙이 아니라 setup/hold 마진 확보를 위한 필수 전략임을 이해. 잘못된 샘플링 시점 하나가 전체 검증 신뢰성을 무너뜨릴 수 있음.
 * **Async Communication Verification**: 비동기 시스템은 "동작한다"를 넘어 "어디까지 동작한다"를 정량화하는 것이 검증의 핵심. 이론 스펙과 실측값의 차이를 직접 수치로 확인하는 경험을 쌓음.
+
+---
 
 ## 🖥️ 개발 환경
 
@@ -70,7 +82,3 @@ Baud Rate 오차 허용 범위
 | 시뮬레이터 | Vivado Simulator (XSim) |
 | 타겟 클럭 | 100MHz |
 
-## 📂 포트폴리오 목차
-
-* [📂 Source Code](#) : Testbench 전체 소스
-* [📂 Report](#) : 최종 설계 보고서
