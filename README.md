@@ -82,3 +82,11 @@ Baud Rate 오차 허용 범위
 | 시뮬레이터 | Vivado Simulator (XSim) |
 | 타겟 클럭 | 100MHz |
 
+---
+
+## 📁 파일 구성
+
+```text
+├── fifo.v                       # FIFO DUT (register_file + control_unit)
+├── uart_top.v                   # UART Top DUT (uart_rx, uart_tx, fifo_rx, fifo_tx, baud_tick)
+└── tb_uart_fifo_sv.sv           # UART + FIFO SystemVerilog Testbench (OOP 기반)
